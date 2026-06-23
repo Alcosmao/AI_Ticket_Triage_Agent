@@ -1,0 +1,25 @@
+{
+  "ticket_summary": "Marketing sent promotional emails to 45,000 EU customers without documented consent. Opt-in records cannot be located. DPO notified but unresponsive. Legal is asking about GDPR obligations within 72 hours.",
+  "issue_category": "GDPR Data Breach / Consent Violation",
+  "priority": "Critical",
+  "urgency_reason": "GDPR Article 33 requires notification to the supervisory authority within 72 hours of becoming aware of a personal data breach. The clock may already be running.",
+  "suggested_team": "Data Protection Officer / External Legal Counsel",
+  "required_information": [
+    "Exact date the campaign was sent",
+    "Confirmation of whether consent records exist anywhere in the CRM",
+    "Date the DPO was notified",
+    "Whether the supervisory authority has been contacted yet"
+  ],
+  "recommended_next_steps": [
+    "Escalate immediately to DPO and external legal counsel",
+    "Determine whether this qualifies as a notifiable breach under Article 33",
+    "If notifiable, file report with supervisory authority within 72-hour window",
+    "Preserve all CRM and campaign records — do not delete or modify",
+    "Draft an internal breach report"
+  ],
+  "escalation_required": true,
+  "needs_more_info": false,
+  "follow_up_question": null,
+  "draft_customer_response": "Thank you for reporting this matter. We are treating this as a high-priority compliance incident. Our Data Protection Officer and Legal team have been notified and are reviewing the situation. We will provide an update within 24 hours.",
+  "internal_legal_note": "Potential GDPR Article 6 (lawful basis) and Article 7 (consent) violation affecting 45,000 data subjects. Article 33 notification window may be active. Immediate DPO escalation required. Do not delete or modify any campaign or CRM records pending investigation."
+}
