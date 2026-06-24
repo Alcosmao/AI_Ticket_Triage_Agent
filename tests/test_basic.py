@@ -1,8 +1,3 @@
-# tests/test_basic.py
-#
-# Basic tests for the triage agent.
-# All tests use mock mode — no API key needed.
-
 import pytest
 from app.services import triage_ticket_mock
 from app.models import TicketAnalysis
