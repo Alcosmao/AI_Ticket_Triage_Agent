@@ -2,9 +2,10 @@ from fastapi import FastAPI, HTTPException
 from datetime import datetime
 
 from app.models import TicketInput, TicketAnalysis
-from app.services import triage_ticket_mock
+from app.services import triage_ticket_mock, triage_ticket_real
 from app.config import USE_MOCK
 from app.file_utils import save_json_output, save_txt_report
+
 
 app = FastAPI(
     title="AI Compliance Ticket Triage Agent",
@@ -35,7 +36,7 @@ def triage_ticket(ticket: TicketInput) -> TicketAnalysis:
         if USE_MOCK:
             analysis = triage_ticket_mock(ticket.ticket_text)
         else:
-            raise HTTPException(status_code=501, detail="Real mode not implemented yet.")
+            analysis = triage_ticket_real(ticket.ticket_text)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"ticket_{timestamp}"
