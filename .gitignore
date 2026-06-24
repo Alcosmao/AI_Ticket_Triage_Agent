@@ -32,3 +32,5 @@ Thumbs.db
 
 # ngrok
 *.ngrok-v3-authtoken
+
+notes.txt
