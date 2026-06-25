@@ -3,6 +3,7 @@ from app.mock_data import MOCK_CRITICAL, MOCK_LOW, MOCK_MEDIUM
 import json
 from openai import OpenAI
 from app.config import OPENAI_API_KEY, MODEL_NAME, MAX_TOKENS, MAX_AGENT_STEPS
+from app.knowledge_base import REGULATIONS
 
 CHECK_MISSING_INFO_TOOL = {
     "type": "function",
@@ -38,6 +39,36 @@ CHECK_MISSING_INFO_TOOL = {
         }
     }
 }
+
+LOOKUP_REGULATION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "lookup_regulation",
+        "description": (
+            "Look up the exact reference, deadline, and responsible authority "
+            "for a compliance regulation from the controlled knowledge base. "
+            "Call this before citing any regulation, so the citation is accurate "
+            "instead of guessed."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "topic": {
+                    "type": "string",
+                    "enum": [
+                        "gdpr_breach",
+                        "gdpr_consent",
+                        "hr_confidentiality",
+                        "nda_review",
+                    ],
+                    "description": "The regulation topic to look up.",
+                }
+            },
+            "required": ["topic"],
+        },
+    },
+}
+
 AGENT_SYSTEM_PROMPT = (
     "You are a senior compliance and legal analyst. "
     "First decide whether the ticket has enough detail to triage properly. "
@@ -45,44 +76,29 @@ AGENT_SYSTEM_PROMPT = (
     "evidence, or regulation reference), call the check_missing_information tool. "
     "After calling the tool, return your final JSON analysis with "
     "needs_more_info set to true and follow_up_question set to your question. "
+    "Before citing any regulation, call the lookup_regulation tool to get the "
+    "exact reference, deadline, and authority — never guess legal citations. "
     "If the ticket is complete, return the final JSON analysis directly with "
     "needs_more_info set to false and follow_up_question null. "
     "Always respond with valid JSON only for the final answer."
 )
 
+
 def detect_mock_type(ticket_text: str) -> str:
-    """
-    Check keywords in the ticket text to decide which mock response to use
-
-    Args:
-        ticket_text: raw ticket text from the user
-
-    Return:
-        "critical", "medium", "low"
-    """
+    """Pick which mock response fits the ticket text by keyword."""
     text_lower = ticket_text.lower()
 
     if "gdpr" in text_lower or "consent" in text_lower or "45,000" in text_lower:
         return "critical"
-    
+
     if "salary" in text_lower or "confidential" in text_lower or "manager" in text_lower:
         return "medium"
-    
+
     return "low"
 
 
 def triage_ticket_mock(ticket_text: str) -> TicketAnalysis:
-
-    """"
-    Returns a pre-written triage result without calling an AI API.
-    Used when USE_MOCK=true so anyone can run the project without an API key.
-
-    Args:
-        ticket_text: raw ticket text from the user
-
-    Returns:
-        A validated TicketAnalysis object
-    """
+    """Return a pre-written triage result without calling an API (USE_MOCK=true)."""
     mock_type = detect_mock_type(ticket_text)
 
     if mock_type == "critical":
@@ -94,17 +110,9 @@ def triage_ticket_mock(ticket_text: str) -> TicketAnalysis:
 
     return TicketAnalysis(**data)
 
+
 def build_prompt(ticket_text: str) -> str:
-    """
-    Builds the instruction prompt sent to the AI.
-    Tells the model exactly what JSON fields to return and what they mean.
-
-    Args:
-        ticket_text: raw ticket text from the user
-
-    Returns:
-        A formatted prompt string    
-    """
+    """Build the instruction prompt listing the JSON fields the model must return."""
     return f"""
 You are a senior compliance and legal analyst.
 Analyze the following compliance incident ticket and return a JSON object.
@@ -138,20 +146,9 @@ Rules:
 - Do not invent data
     """
 
+
 def triage_ticket_real(ticket_text: str) -> TicketAnalysis:
-    """
-    Calls the OpenAI API to analyze the ticket and returns a validated TicketAnalysis.
-    Used when USE_MOCK=false in .env.
-
-    Args:
-        ticket_text: raw ticket text from the user
-
-    Returns:
-        A validated TicketAnalysis object
-
-    Raises:
-        ValueError: if the AI response cannot be parsed or validated
-    """
+    """One-shot OpenAI call returning a validated TicketAnalysis (USE_MOCK=false)."""
     try:
         client = OpenAI(api_key=OPENAI_API_KEY)
         prompt = build_prompt(ticket_text)
@@ -174,29 +171,13 @@ def triage_ticket_real(ticket_text: str) -> TicketAnalysis:
         raw_json = response.choices[0].message.content
         data = json.loads(raw_json)
         return TicketAnalysis(**data)
-    
+
     except Exception as e:
         raise ValueError(f"AI triage failed: {str(e)}")
 
+
 def triage_ticket_agent(ticket_text: str) -> TicketAnalysis:
-    """
-    Runs the compliance ticket through an OpenAI agent loop.
-
-    The model is given the check_missing_information tool. On each turn it
-    either calls the tool (ticket is too vague) or returns the final JSON
-    analysis. The loop runs at most MAX_AGENT_STEPS times so it can never
-    loop forever.
-
-    Args:
-        ticket_text: raw ticket text from the user
-
-    Returns:
-        A validated TicketAnalysis object
-
-    Raises:
-        ValueError: if the model never returns a final answer, or the answer
-                    cannot be parsed or validated.
-    """
+    """Agent loop: give the model its tools, run them, return the final analysis."""
     try:
         client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -210,7 +191,7 @@ def triage_ticket_agent(ticket_text: str) -> TicketAnalysis:
                 model=MODEL_NAME,
                 max_completion_tokens=MAX_TOKENS,
                 response_format={"type": "json_object"},
-                tools=[CHECK_MISSING_INFO_TOOL],
+                tools=[CHECK_MISSING_INFO_TOOL, LOOKUP_REGULATION_TOOL],
                 messages=messages,
             )
             message = response.choices[0].message
@@ -219,16 +200,44 @@ def triage_ticket_agent(ticket_text: str) -> TicketAnalysis:
                 data = json.loads(message.content)
                 return TicketAnalysis(**data)
 
-            tool_call = message.tool_calls[0]
             messages.append(message)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": "Noted. Now return the final JSON analysis with needs_more_info=true.",
-            })
+            for tool_call in message.tool_calls:
+                result = run_tool(tool_call)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps(result),
+                })
 
         raise ValueError(f"Agent did not finish within {MAX_AGENT_STEPS} steps")
-    
+
     except Exception as e:
         raise ValueError(f"Agent triage failed: {str(e)}")
-    
+
+
+def lookup_regulation(topic: str) -> dict:
+    """Return regulation facts for a topic from the knowledge base, or a safe 'not found'."""
+    regulation = REGULATIONS.get(topic)
+
+    if regulation is None:
+        return {
+            "reference": "Not found",
+            "deadline_hours": None,
+            "authority": "Unknown — manual legal review required",
+            "note": f"No regulation found for topic '{topic}'. Escalate to legal team.",
+        }
+
+    return regulation
+
+
+def run_tool(tool_call) -> dict:
+    """Dispatch a tool call to the matching Python function and return its result."""
+    name = tool_call.function.name
+    args = json.loads(tool_call.function.arguments)
+
+    if name == "lookup_regulation":
+        return lookup_regulation(args["topic"])
+    if name == "check_missing_information":
+        return {"status": "acknowledged"}
+
+    return {"error": f"Unknown tool: {name}"}

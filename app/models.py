@@ -2,10 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 
 class TicketInput(BaseModel):
-    """
-    The data tha API receives from the user.
-    One field only: the raw text of the compliance ticket.
-    """
+    """The raw compliance ticket received from the user."""
 
     ticket_text: str = Field(
         ...,
@@ -14,10 +11,7 @@ class TicketInput(BaseModel):
     )
 
 class TicketAnalysis(BaseModel):
-    """
-    The structured triage result that the AI produces.
-    Every field here will appear in the JSON response.
-    """
+    """The structured triage result returned in the JSON response."""
 
     ticket_summary: str
     issue_category: str

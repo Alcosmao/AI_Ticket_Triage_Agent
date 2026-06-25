@@ -6,16 +6,7 @@ OUTPUTS_DIR = "outputs"
 
 
 def save_json_output(analysis: TicketAnalysis, filename: str) -> None:
-    """
-    Saves the traige result as a .json file.
-
-    Args:
-        analysis: the validated TicketAnalysis object
-        filename: name of the file like "result_critical.json"
-
-    Returns:
-        None
-    """
+    """Save the triage result as a .json file under outputs/."""
     try:
         os.makedirs(OUTPUTS_DIR, exist_ok=True)
         filepath = os.path.join(OUTPUTS_DIR, filename)
@@ -30,16 +21,7 @@ def save_json_output(analysis: TicketAnalysis, filename: str) -> None:
 
 
 def save_txt_report(analysis: TicketAnalysis, filename: str) -> None:
-    """"
-    Saves a readable report as a txt file.
-
-    Args:
-        analysis: the validated TicketAnalysis object
-        filename: name of the file like "result_critical.txt"
-
-    Returns:
-        None
-    """
+    """Save a readable text report under outputs/."""
     try:
         os.makedirs(OUTPUTS_DIR, exist_ok=True)
         filepath = os.path.join(OUTPUTS_DIR, filename)
@@ -56,16 +38,7 @@ def save_txt_report(analysis: TicketAnalysis, filename: str) -> None:
 
 
 def build_txt_report(analysis: TicketAnalysis) -> str:
-    """
-    Builds a formatted text string from the TicketAnalysis object.
-    Separated from save_txt_report() so the report can be tested without saving a file.
-
-    Args:
-        analysis: the validated TicketAnalysis object
-
-    Returns:
-        A formatted string ready to be written to a .txt file
-    """
+    """Build the formatted report string (split out so it can be tested without writing a file)."""
     lines = [
         "=" * 60,
         "COMPLIANCE TICKET TRIAGE REPORT",

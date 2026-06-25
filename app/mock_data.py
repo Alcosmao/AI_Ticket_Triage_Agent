@@ -1,9 +1,3 @@
-# app/mock_data.py
-#
-# Pre-written mock responses for MOCK mode.
-# These are data constants only — no logic here.
-# services.py imports from this file.
-
 MOCK_CRITICAL = {
     "ticket_summary": (
         "Marketing sent promotional emails to 45,000 EU customers without "

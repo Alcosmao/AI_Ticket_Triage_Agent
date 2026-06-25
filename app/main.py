@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from datetime import datetime
 
 from app.models import TicketInput, TicketAnalysis
-from app.services import triage_ticket_mock, triage_ticket_real
+from app.services import triage_ticket_mock, triage_ticket_real, triage_ticket_agent
 from app.config import USE_MOCK
 from app.file_utils import save_json_output, save_txt_report
 
@@ -13,22 +13,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
 @app.get("/")
-def heath_check():
-    """Quck check that the server is ok"""
+def health_check():
+    """Health check: returns server status and current mode."""
     return {"status": "ok", "mode": "mock" if USE_MOCK else "real"}
+
 
 @app.post("/triage-ticket", response_model=TicketAnalysis)
 def triage_ticket(ticket: TicketInput) -> TicketAnalysis:
-    """
-    Receives a raw compliance ticket and returns a structured triage analysis.
-
-    Args:
-        ticket: TicketInput object containing the raw ticket
-
-    Returns:
-        TicketAnalysis object with fields    
-    """
+    """Triage a compliance ticket and return a structured analysis."""
     if not ticket.ticket_text.strip():
         raise HTTPException(status_code=400, detail="Ticket text cannot be empty.")
 
@@ -37,6 +31,8 @@ def triage_ticket(ticket: TicketInput) -> TicketAnalysis:
             analysis = triage_ticket_mock(ticket.ticket_text)
         else:
             analysis = triage_ticket_real(ticket.ticket_text)
+            if analysis.escalation_required:
+                analysis = triage_ticket_agent(ticket.ticket_text)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"ticket_{timestamp}"
@@ -49,4 +45,4 @@ def triage_ticket(ticket: TicketInput) -> TicketAnalysis:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Triage failed: {str(e)}")          
+        raise HTTPException(status_code=500, detail=f"Triage failed: {str(e)}")
